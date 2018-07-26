@@ -33,22 +33,22 @@ Auth::routes(); //Al jecutar php artisan make auth se crean nuevas rutas como es
 Route::get('/home', 'HomeController@index')->name('home')->middleware('auth');
 
 // comienzo a crear un panel de administracion
-//Route::view('admin','/admin/dashboard'); // Haciendo esto sin mas puedo acceder en el explorador a http://authoritation-techniques.test/admin aunque no esté logado
-                                         // En un panel de administracion solo queremos dar acceso a los usuarios que tengan el role de admin
-                                         // Asi que creo una nueva prueba php artisan make:test Admin/AdminDashboardTest   o     php artisan m:t Admin/AdminDashboardTest
-                                         // Laravel creara la carpeta Admin por mi. Y me voy allí.
-// Route::view('admin','/admin/dashboard')->name('admin_dashboard'); //Es como me refiero a ella en por ejemplo las pruebas
+//Route::view('admin','/admin/dashboard');  /* Haciendo esto sin mas puedo acceder en el explorador a http://authoritation-techniques.test/admin aunque no esté logado
+                                            // En un panel de administracion solo queremos dar acceso a los usuarios que tengan el role de admin
+                                            // Asi que creo una nueva prueba php artisan make:test Admin/AdminDashboardTest   o     php artisan m:t Admin/AdminDashboardTest
+                                            // Laravel creara la carpeta Admin por mi. Y me voy a la prueba.*/
+// Route::view('admin','/admin/dashboard')->name('admin_dashboard'); //Es como me refiero a ella en por ejemplo las pruebas. He puesto un nombre.
 
+// Aplico el middleware de autorizació<n:   ->middleware('auth');
 // Route::view('admin','/admin/dashboard')->name('admin_dashboard')->middleware('auth'); //de manera que solo puedo acceder si soy admin.
                                         // pero aunque sirve para los usuarios guest no es suficiente para los usuarios que son user y no admin
                                         // asi que cambio el helper view por el get y una funcion anonima donde pongo logica
-
 
 //================================
 // Comento y repito esta ruta con el condicional mas abajo porque uso una Guard Clause,
 // es decir en lugar de hacer el condicional con un else, hago un condicional que se si cumple ya salgo de la funcion
 // y despues pongo el resto de las cosas que quiero
-//Route::get('admin', function(){
+// Route::get('admin', function(){
     //return view('/admin/dashboard');  // aqui ejecuto las pruebas y veo que todo va igual, lo bueno y lo malo
                                         // como es así pongo logica y luego uso esa linea
 
@@ -80,7 +80,7 @@ Route::get('/home', 'HomeController@index')->name('home')->middleware('auth');
 //  lo pongo con la guard clause.
 //  y lo vuelvo a comentar porque hay otra manera mejor aun que es usar un middleware. Sigo usando la guard clause pero mando lo demas de otra manera
 
-// Route::get('admin', function(){
+// Route::get('/admin', function(){
 //     if(! auth()->user()->admin){
 //         return response()->view('forbidden',[],403);
 //     }
@@ -124,17 +124,91 @@ Route::get('/home', 'HomeController@index')->name('home')->middleware('auth');
 
 */
 // sin alias
-/*Route::get('admin', function(){
+/*Route::get('/admin', function(){
     return view('/admin/dashboard');
 })->name('admin_dashboard')->middleware(['auth',\App\Http\Middleware\Admin::class]); */
 
 //OPCION 1 con alias
-/*Route::get('admin', function(){
+/*Route::get('/admin', function(){
     return view('/admin/dashboard');
 })->name('admin_dashboard')->middleware(['auth','admin']);*/
 
-//OPCION 2: con excepcion de refactorizacion
+// ====================
+// Comento porque vamos a usar rutas agrupadas para no repetir codigo
+//OPCION 2: con excepcion de autentificacion en el middleware
+// Route::get('/admin', function(){
+//     return view('/admin/dashboard');
+// })->name('admin_dashboard')->middleware(['auth','admin']);
 
-Route::get('admin', function(){
-    return view('/admin/dashboard');
-})->name('admin_dashboard')->middleware(['auth','admin']);
+
+// añado otra ruta. Comienzo de la segunda leccion anidada
+// Route::get('/admin/events', function(){
+//     return 'Admin Events';
+// })->name('admin_events')->middleware(['auth','admin']);
+// ====================
+
+/* hago las rutas agrupadas con el metodo Route::group()
+    Este metodo recibe dos argumentos. El primero lo comun de las rutas y despues una funcion anonima donde pongo todas las rutas que quiero que formen parte de este grupo
+    Muestro la estructura solo con el group y poniendo lo vble dentro de la funcion y pruebo. Veré que funciona
+            Route::group([],function(){
+                Route::get('/admin', function(){
+                    return view('/admin/dashboard');
+                })->name('admin_dashboard')->middleware(['auth','admin']);
+
+                Route::get('/admin/events', function(){
+                    return 'Admin Events';
+                })->name('admin_events')->middleware(['auth','admin']);
+            });
+    Incluyo ahora lo comun. En primera instancia la caracteristicas del middleware. De los dos. Lo añado al array de group y lo elimino del final de cada ruta
+            Route::group(['middleware'=>['auth','admin']],function(){
+                Route::get('/admin', function(){
+                    return view('/admin/dashboard');
+                })->name('admin_dashboard');
+
+                Route::get('/admin/events', function(){
+                    return 'Admin Events';
+                })->name('admin_events');
+            });
+            Pruebo y funciona
+    Pongo tb el prefijo admin como parte del grupo de rutas y lo quito de cada route
+        Route::group(['prefix'=>'admin','middleware'=>['auth','admin']], function(){
+            Route::get('/', function(){
+                return view('/admin/dashboard');
+            })->name('admin_dashboard');
+
+            Route::get('/events', function(){
+                return 'Admin Events';
+            })->name('admin_events');
+        } );
+
+    Qué pasaría si tengo un admin con muchas rutas. Lo mejor que puedo hacer es sacar todas esas rutas a un archivo externo.
+    Crearé un archivo en el mismo directorio que se llame admin.php. Antes de probar debo crear el archivo. Lo creo, copio lo que había en la función y pruebo. Y pasas
+        Route::group(['prefix'=>'admin','middleware'=>['auth','admin']], function(){
+            require __DIR__ . '/admin.php';
+        } );
+
+    También podría crear una carpeta de rutas y ponerlo ahí.
+        Creo la carpeta web y muebo ahí admin.php y redirijo a esa carpeta en el require
+        Pruebo y funciona
+        Route::group(['prefix'=>'admin','middleware'=>['auth','admin']], function(){
+            require __DIR__ . '/web/admin.php';
+        } );
+
+    una forma más limpia puede ser pasarlo como métodos encadenados en lugar de como un array que mola mas
+        Route::middleware(['admin','auth'])
+                ->prefix('/admin')
+                ->group(function(){
+                    require __DIR__ . '/web/admin.php';
+                });
+
+    Otra opcion es en lugar de hacer esto aquí es cambiar la configuracion del archivo RouteServiceProvider.php que está en App/providers el provider
+        En este archivo vemos que hay ciertos tipos de rutas en la function map. Hay alguna que sobra y Duilio la elimina, pero yo la dejo.
+        Modifico el RouteServiceProvider.php (ver allí. Duilio deja de usar la subcarpeta web. Yo la dejo de ejemplo, pero ya no busco admin.php ahí) y
+
+        Es decir he puesto las referencias a las rutas de Admin completamente en RouteServiceProvider
+
+    */
+//    Route::middleware(['admin','auth'])->prefix('/admin')->group(function(){require __DIR__ . '/web/admin.php';});
+    // Route::group(['prefix'=>'admin','middleware'=>['auth','admin']], function(){
+    //     require __DIR__ . '/web/admin.php';
+    // } );
